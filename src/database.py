@@ -1,0 +1,14 @@
+"""База данных."""
+
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase
+
+from src.settings import settings
+
+engine = create_async_engine(settings.database_url, echo=False)
+
+AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+
+
+class Base(DeclarativeBase):
+    """Основная модель. Все остальные наследуются от неё."""

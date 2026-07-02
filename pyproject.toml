@@ -1,0 +1,80 @@
+[project]
+name = "time-capsule-backend"
+version = "0.1.0"
+description = "Backend для веб-приложения капсул времени"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+  "alembic>=1.18.5",
+  "asyncpg>=0.31.0",
+  "bcrypt==4.0.1",
+  "fastapi>=0.138.2",
+  "passlib>=1.7.4",
+  "pydantic-settings>=2.14.2",  # Валидация и использование с автодополнением переменных из .env
+  "python-jose[cryptography]>=3.5.0",
+  "sqlalchemy>=2.0.51",
+  "structlog>=26.1.0",  # Для логгирования
+  "uvicorn[standard]>=0.49.0",
+]
+
+[dependency-groups]
+dev = [
+  "httpx2>=2.5.0",
+  "pre-commit>=4.6.0",
+  "pre-commit-hooks>=6.0.0",
+  "pytest>=9.1.1",
+  "pytest-asyncio>=1.4.0",
+  "pytest-cov>=7.1.0",
+  "ruff>=0.15.20",
+  "ty>=0.0.55",
+  "uv>=0.11.26",
+]
+
+# Coverage ----
+[tool.coverage.run]
+data_file = "tmp/.coverage"
+
+# Pytest ----
+[tool.pytest.ini_options]
+addopts = ["-p no:cacheprovider", "--cov=src", "--cov-report=term-missing"]
+asyncio_mode = "auto"
+norecursedirs = ["migrations", ".venv", "tmp"]
+# Имена файлов с тестами: 001_simple_test.py
+python_files = ["*_test.py", "*_tests.py"]
+# Искать тесты в папке
+testpaths = ["tests/pytest"]
+
+# Ruff ----
+[tool.ruff]
+cache-dir = "tmp/.ruff-cache"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "E501",  # длина строки
+  "RUF002",  # кириллица в докстрингах
+  "RUF003",  # кириллица в комментариях
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+  "S101",  # assert
+  "INP001",  # не нужен  __init__.py
+  "ANN201",  # тесты могут возвращать None
+  "PLR2004",  # для status_code == 201
+]
+"migrations/**" = [
+  "ALL",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"  # Google Style
+
+# ty ----
+[tool.ty.environment]
+python-version = "3.14"
+
+# [tool.ty.rules]
+# invalid-method-override = "ignore"
+# unresolved-import = "ignore"
+# unresolved-attribute = "ignore"
