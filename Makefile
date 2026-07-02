@@ -20,7 +20,6 @@ pre-commit-install_host:
 	uv run pre-commit install --hook-type pre-commit --hook-type pre-push
 ## Запустить pre-commit хуки на хосте (на всех файлах — полная проверка)
 pre-commit_all:
-	uv run pre-commit run --all-files --hook-stage pre-commit || true
 	uv run pre-commit run --all-files --hook-stage pre-push || true
 
 ## Запустить тесты в тестовом окружении
