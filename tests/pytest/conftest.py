@@ -1,5 +1,7 @@
 """conftest.py с изоляцией через очистку таблиц после каждого теста."""
 
+import asyncio
+
 import pytest
 from httpx2 import ASGITransport, AsyncClient
 from sqlalchemy import text
@@ -48,10 +50,12 @@ async def async_client(db_session):  # noqa: ANN001
 # Асинхронная сессия ----
 
 
-@pytest.fixture(scope="session")
-def async_engine():
-    """Один engine на всю сессию. Создаёт таблицы."""
-    return create_async_engine(settings.database_url)  # engine
+@pytest.fixture
+async def async_engine():
+    """Engine на каждый тест — изоляция event loop."""
+    engine = create_async_engine(settings.database_url)
+    yield engine
+    await engine.dispose()
 
 
 @pytest.fixture
@@ -69,5 +73,15 @@ async def db_session(async_engine):  # noqa: ANN001
     # Очищаем таблицы для следующего теста
     async with async_session() as session:
         for table in reversed(Base.metadata.sorted_tables):
-            await session.execute(text(f"TRUNCATE TABLE {table.name} CASCADE"))
+            await session.execute(
+                text(f"TRUNCATE TABLE {table.name} RESTART IDENTITY CASCADE"),
+            )
         await session.commit()
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Один event loop на всю сессию тестов (для async БД + httpx)."""
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 # Импорт моделей, чтобы он увидел их
 from src.auth.models import User
+from src.time_capsule.models import TimeCapsule
 from src.database import Base
 from src.settings import settings
 

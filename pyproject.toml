@@ -37,12 +37,12 @@ data_file = "tmp/.coverage"
 # Pytest ----
 [tool.pytest.ini_options]
 addopts = ["-p no:cacheprovider", "--cov=src", "--cov-report=term-missing"]
-asyncio_mode = "auto"
 norecursedirs = ["migrations", ".venv", "tmp"]
 # Имена файлов с тестами: 001_simple_test.py
 python_files = ["*_test.py", "*_tests.py"]
 # Искать тесты в папке
 testpaths = ["tests/pytest"]
+asyncio_mode = "auto"
 
 # Ruff ----
 [tool.ruff]
@@ -54,6 +54,8 @@ ignore = [
   "E501",  # длина строки
   "RUF002",  # кириллица в докстрингах
   "RUF003",  # кириллица в комментариях
+  "TC002",  # импорты для аннотации под from typing import TYPE_CHECKING,
+  "TC001",  # НО в Fast API они используются для выполнения
 ]
 
 [tool.ruff.lint.per-file-ignores]

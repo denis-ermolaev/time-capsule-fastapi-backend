@@ -89,7 +89,7 @@ compose_without_build_test:
 init_migrations:
 	uv run alembic init -t async migrations/
 
-MESSAGE ?= "Auto-generated migration"
+MESSAGE ?= Auto-generated migration
 ## Создать миграцию
 make_migrations:
 	$(WEB) uv run alembic revision --autogenerate -m "$(MESSAGE)"

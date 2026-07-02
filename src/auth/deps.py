@@ -1,29 +1,30 @@
 """Зависимость аутентификации."""
 
-from typing import TYPE_CHECKING
-
 from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import (
+    HTTPAuthorizationCredentials,
+    HTTPBearer,
+)
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.jwt import decode_token
 from src.auth.models import User
 from src.db_depends import get_async_db
 
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+http_bearer = HTTPBearer()
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    # HTTPBearer возвращает HTTPAuthorizationCredentials → берём .credentials
+    credentials: HTTPAuthorizationCredentials = Depends(http_bearer),  # noqa: B008
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ) -> User:
-    """Получить текущего пользователя из токена. Выдать ошибки при проблемах с токеном."""
+    """Получить текущего пользователя из токена."""
+    token = credentials.credentials
     payload = decode_token(token)
-    if payload is None:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    if payload is None or payload.get("token_type") != "access":
+        raise HTTPException(status_code=401, detail="Invalid access token")
 
     user = await db.scalar(select(User).where(User.id == int(payload["sub"])))
     if not user:
