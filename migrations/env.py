@@ -6,7 +6,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 # Импорт моделей, чтобы он увидел их
-from src import models  # noqa: F401
+from src.auth.models import User
 from src.database import Base
 from src.settings import settings
 

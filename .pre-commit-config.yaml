@@ -58,7 +58,7 @@ repos:
         pass_filenames: false
         require_serial: true
 
-      - id: tests                                     
+      - id: tests
         name: run tests
         entry: make test
         language: system
