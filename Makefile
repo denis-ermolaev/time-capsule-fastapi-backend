@@ -27,7 +27,7 @@ pre-commit_all:
 
 # Test workflow: Поднимаем контейнеры, запускаем тесты, в конце работы закрываем контейнеры или при необходимости миграции ----
 ## Поднять тестовые контейнеры и сделать миграцию
-prepare_test:
+up_test:
 	$(COMPOSE) --profile test up -d --no-build
 	$(COMPOSE) exec -T test uv run alembic upgrade head
 
@@ -40,16 +40,16 @@ test_docs:
 	$(COMPOSE) exec -T test uv run python -m pytest --doctest-modules src/
 
 ## Удалить тестовые контейнеры
-delete_test:
+down_test:
 	$(COMPOSE) --profile test down
 
 ## Единная команда для запуска тестов
 test_all:
-	$(MAKE) delete_test
-	$(MAKE) prepare_test
+	$(MAKE) down_test
+	$(MAKE) up_test
 	$(MAKE) test_docs
 	$(MAKE) test
-	$(MAKE) delete_test
+	$(MAKE) down_test
 
 # ИИ-ревью ----
 ## Ревью кода от ИИ-агента
@@ -86,12 +86,11 @@ compose_build:
 compose_without_build:
 	$(COMPOSE) --profile main up -d --no-build
 
+down_web:
+	$(COMPOSE) --profile main down
+
 compose_build_test:
 	$(COMPOSE) --profile test up -d --build
-
-## Запустить контейнер без пересборки
-compose_without_build_test:
-	$(COMPOSE) --profile test up -d --no-build
 
 # ---------------------------------------------------------------------------- #
 
