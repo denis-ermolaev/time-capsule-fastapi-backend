@@ -9,7 +9,7 @@ Attributes:
               при импорте модуля.
 
 Typical usage example:
-    >>> from src.config import settings
+    >>> from src.settings import settings
     >>> settings.db_host
     'test_db'
 """

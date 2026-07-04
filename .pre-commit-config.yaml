@@ -89,7 +89,7 @@ repos:
 
       - id: tests
         name: tests
-        entry: make test
+        entry: make test_all
         language: system
         pass_filenames: false
         stages: [pre-push]

@@ -32,3 +32,11 @@ class TimeCapsuleCreateOut(BaseModel):
     create_date: datetime
     lock_date: datetime
     open_date: datetime | None = None
+
+
+class TimeCapsuleUpdate(BaseModel):
+    """Схема для частичного обновления капсулы — все поля опциональны."""
+
+    is_private: bool | None = None
+    text: str | None = None
+    lock_date: datetime | None = None

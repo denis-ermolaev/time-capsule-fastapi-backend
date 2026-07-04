@@ -36,7 +36,12 @@ data_file = "tmp/.coverage"
 
 # Pytest ----
 [tool.pytest.ini_options]
-addopts = ["-p no:cacheprovider", "--cov=src", "--cov-report=term-missing"]
+addopts = [
+  "-s",
+  "-p no:cacheprovider",
+  "--cov=src",
+  "--cov-report=term-missing"
+]
 norecursedirs = ["migrations", ".venv", "tmp"]
 # Имена файлов с тестами: 001_simple_test.py
 python_files = ["*_test.py", "*_tests.py"]

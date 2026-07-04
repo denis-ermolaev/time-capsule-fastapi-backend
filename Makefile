@@ -18,24 +18,40 @@ help:
 ## Установить pre-commit хуки
 pre-commit-install_host:
 	uv run pre-commit install --hook-type pre-commit --hook-type pre-push
+
+# Запускает и pre-push и pre-commit хуки!
 ## Запустить pre-commit хуки на хосте (на всех файлах — полная проверка)
 pre-commit_all:
-	uv run pre-commit run --all-files --hook-stage pre-push || true
+	uv run pre-commit run --all-files --hook-stage pre-push
+
+
+# Test workflow: Поднимаем контейнеры, запускаем тесты, в конце работы закрываем контейнеры или при необходимости миграции ----
+## Поднять тестовые контейнеры и сделать миграцию
+prepare_test:
+	$(COMPOSE) --profile test up -d --no-build
+	$(COMPOSE) exec -T test uv run alembic upgrade head
 
 ## Запустить тесты в тестовом окружении
 test:
-	$(COMPOSE) --profile test up -d --no-build || true
-	$(COMPOSE) exec test uv run alembic upgrade head || true
-	$(COMPOSE) exec test uv run pytest || true
-	$(COMPOSE) --profile test down || true
+	$(COMPOSE) exec -T test uv run pytest
 
 ## Тесты по docstring в тестовом окружении
 test_docs:
-	$(COMPOSE) --profile test up -d --no-build || true
-	$(COMPOSE) exec test uv run alembic upgrade head || true
-	$(COMPOSE) exec test uv run python -m pytest --doctest-modules src/ || true
-	$(COMPOSE) --profile test down || true
+	$(COMPOSE) exec -T test uv run python -m pytest --doctest-modules src/
 
+## Удалить тестовые контейнеры
+delete_test:
+	$(COMPOSE) --profile test down
+
+## Единная команда для запуска тестов
+test_all:
+	$(MAKE) delete_test
+	$(MAKE) prepare_test
+	$(MAKE) test_docs
+	$(MAKE) test
+	$(MAKE) delete_test
+
+# ИИ-ревью ----
 ## Ревью кода от ИИ-агента
 review_diff:
 	opencode run --auto --agent review "Проведи ревью изменённых файлов" > tmp/review-diff-latest.md
