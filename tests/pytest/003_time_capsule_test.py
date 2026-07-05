@@ -54,6 +54,7 @@ async def test_time_capsule_flow(async_client: AsyncClient):
     response = await async_client.post(
         "/time_capsules/",
         json={
+            "title": "my first time capsule",
             "is_private": True,
             "text": "example text",
             "lock_date": "2028-08-02T20:53:52.808Z",
@@ -73,13 +74,22 @@ async def test_time_capsule_flow(async_client: AsyncClient):
     ## С авторизацией -> 201
     response = await async_client.get(
         "/time_capsules/",
+        params={
+            "page": 1,
+            "page_size": 10,
+        },
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 201
-    data = response.json()[0]  # Только для первой капсулы
+    data = response.json()  # Только для первой капсулы
+    logger.debug("Ответ сервера", data=data)
+    assert "items" in data
+    assert "total" in data
+    assert "page" in data
+    assert "page_size" in data
+    data = data["items"][0]
     assert "id" in data
-    assert "is_private" in data
-    assert "lock_date" in data
+    assert "is_locked" in data
     # ---------------------------------------------------------------------------- #
 
     # 5. Получение конкретной капсулы ----

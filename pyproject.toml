@@ -61,6 +61,7 @@ ignore = [
   "RUF003",  # кириллица в комментариях
   "TC002",  # импорты для аннотации под from typing import TYPE_CHECKING,
   "TC001",  # НО в Fast API они используются для выполнения
+  "TC003",  # Тоже самое
 ]
 
 [tool.ruff.lint.per-file-ignores]

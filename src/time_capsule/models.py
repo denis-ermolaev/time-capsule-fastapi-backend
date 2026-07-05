@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Text, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.database import Base
@@ -35,6 +35,8 @@ class TimeCapsule(Base):
     # Кто-то когда-то уже прочитал, если True
     is_open: Mapped[bool] = mapped_column(default=False)
 
+    # Название капсулы времени
+    title: Mapped[str] = mapped_column(String(100), nullable=False)
     # Содержание капсулы времени
     text: Mapped[str] = mapped_column(Text, nullable=False)
 
