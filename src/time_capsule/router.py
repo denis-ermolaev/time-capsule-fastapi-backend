@@ -17,13 +17,14 @@ from src.time_capsule.schemas import (
     TimeCapsuleListResponce,
     TimeCapsuleResponce,
     TimeCapsuleUpdateRequest,
+    TimeCapsuleWithTextResponce,
 )
 
 router = APIRouter(prefix="/time_capsules", tags=["time_capsules"])
 
 
-@router.get("/", status_code=201)
-async def get_time_capsules(  # noqa: C901, PLR0912
+@router.get("/", status_code=200)
+async def get_time_capsules(  # noqa: C901
     db: Annotated[
         AsyncSession,
         Depends(get_async_db),
@@ -78,28 +79,27 @@ async def get_time_capsules(  # noqa: C901, PLR0912
     if filters.get("title"):
         conditions.append(TimeCapsule.title.ilike(f"%{filters['title']}%"))
 
-    total_stmt = select(func.count()).select_from(TimeCapsule)
-    total = await db.scalar(total_stmt) or 0
-
-    items = []
-    capsules = (
-        await db.scalars(
-            select(TimeCapsule)
-            .where(
-                or_(
-                    TimeCapsule.user == user,
-                    and_(TimeCapsule.user != user, TimeCapsule.is_private == False),  # noqa: E712
-                ),
-            )
-            .where(and_(*conditions))
-            .order_by(order_by)
-            .offset((page - 1) * page_size)
-            .limit(page_size),
+    base_query = (
+        select(TimeCapsule)
+        .where(
+            or_(
+                TimeCapsule.user == user,
+                and_(TimeCapsule.user != user, TimeCapsule.is_private == False),  # noqa: E712
+            ),
         )
+        .where(and_(*conditions))
+        .order_by(order_by)
+    )
+
+    total = (
+        await db.scalar(select(func.count()).select_from(base_query.subquery())) or 0
+    )
+
+    capsules = (
+        await db.scalars(base_query.offset((page - 1) * page_size).limit(page_size))
     ).all()
-    for i in capsules:
-        i.text = ""  # Скрываем текст, для списка он не нужен
-        items.append(TimeCapsuleResponce.model_validate(i))
+
+    items = [TimeCapsuleResponce.model_validate(i) for i in capsules]
 
     return TimeCapsuleListResponce(
         items=items,
@@ -109,7 +109,7 @@ async def get_time_capsules(  # noqa: C901, PLR0912
     )
 
 
-@router.post("/", response_model=TimeCapsuleResponce, status_code=201)
+@router.post("/", response_model=TimeCapsuleWithTextResponce, status_code=201)
 async def create_time_capsule(
     time_capsule: TimeCapsuleCreateRequest,
     db: Annotated[
@@ -120,7 +120,7 @@ async def create_time_capsule(
         User,
         Depends(get_current_user),
     ],
-) -> TimeCapsuleResponce:
+) -> TimeCapsuleWithTextResponce:
     """Создать капсулу времени."""
     db_time_capsule = TimeCapsule(
         user_id=user.id,
@@ -130,7 +130,7 @@ async def create_time_capsule(
     db.add(db_time_capsule)
     await db.commit()
     await db.refresh(db_time_capsule)
-    return TimeCapsuleResponce.model_validate(db_time_capsule)
+    return TimeCapsuleWithTextResponce.model_validate(db_time_capsule)
 
 
 @router.get("/{capsule_id}", response_model=TimeCapsuleResponce, status_code=200)
@@ -158,18 +158,49 @@ async def get_time_capsule(
     if not time_capsule:
         raise HTTPException(status_code=404, detail="Not found")
 
-    response = TimeCapsuleResponce.model_validate(time_capsule)
+    return TimeCapsuleResponce.model_validate(time_capsule)
+
+
+@router.post(
+    "/{capsule_id}",
+    response_model=TimeCapsuleWithTextResponce,
+    status_code=200,
+)
+async def open_time_capsule(
+    capsule_id: Annotated[int, Path(ge=1, description="id конкретной капсулы времени")],
+    user: Annotated[
+        User,
+        Depends(get_current_user),
+    ],
+    db: Annotated[
+        AsyncSession,
+        Depends(get_async_db),
+    ],
+) -> TimeCapsuleWithTextResponce:
+    """Открыть капсулу времени по id."""
+    time_capsule = (
+        await db.scalars(
+            select(TimeCapsule).where(TimeCapsule.id == capsule_id),
+        )
+    ).first()
+
+    # Если капсула времени приватная и принадлежит другому пользователю -> 404
+    if time_capsule and time_capsule.user != user and time_capsule.is_private:
+        raise HTTPException(status_code=404, detail="Not found")
+    if not time_capsule:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    response = TimeCapsuleWithTextResponce.model_validate(time_capsule)
 
     if time_capsule.lock_date > datetime.now(UTC):
-        # Текст капсулы ещё закрыт
-        response.text = ""
-    elif time_capsule.lock_date < datetime.now(UTC) and not time_capsule.is_open:
+        raise HTTPException(status_code=403, detail="Not open")
+    if time_capsule.lock_date < datetime.now(UTC) and not time_capsule.is_open:
         time_capsule.open_date = datetime.now(UTC)
         time_capsule.is_open = True
         time_capsule.is_locked = False
         await db.commit()
         await db.refresh(time_capsule)
-        response = TimeCapsuleResponce.model_validate(time_capsule)
+        response = TimeCapsuleWithTextResponce.model_validate(time_capsule)
 
     return response
 

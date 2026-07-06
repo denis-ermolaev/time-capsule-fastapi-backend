@@ -85,7 +85,7 @@ async def test_time_capsule_flow(async_client: AsyncClient):
         },
         headers={"Authorization": f"Bearer {access_token}"},
     )
-    assert response.status_code == 201
+    assert response.status_code == 200
     data = response.json()  # Только для первой капсулы
     logger.debug("Ответ сервера", data=data)
     assert "items" in data
@@ -149,18 +149,16 @@ async def test_open_capsule(
     """Тест на открытие капсулы времени для получения доступа к тексту."""
     assert "id" in capsule_time
 
-    response = await async_client.get(
+    response = await async_client.post(
         f"/time_capsules/{capsule_time['id']}",
         headers={"Authorization": f"Bearer {await get_auth_token()}"},
     )
-    assert response.status_code == 200
-    data = response.json()
-    # Текст ещё недоступен
-    assert data["text"] != capsule_time["text"]
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Not open"}
 
     frozen_time.shift(datetime.timedelta(days=365 * 1))
 
-    response = await async_client.get(
+    response = await async_client.post(
         f"/time_capsules/{capsule_time['id']}",
         headers={"Authorization": f"Bearer {await get_auth_token()}"},
     )

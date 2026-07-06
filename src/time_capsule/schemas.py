@@ -29,7 +29,26 @@ class TimeCapsuleResponce(BaseModel):
     is_open: bool
 
     title: str
+
+    create_date: datetime
+    lock_date: datetime
+    open_date: datetime | None = None
+
+
+class TimeCapsuleWithTextResponce(BaseModel):
+    """Данные по капсуле времени."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+
+    is_private: bool
+    is_locked: bool
+    is_open: bool
+
+    title: str
     text: str
+
     create_date: datetime
     lock_date: datetime
     open_date: datetime | None = None
