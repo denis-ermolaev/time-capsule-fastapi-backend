@@ -1,6 +1,10 @@
 """Тесты капсул времени."""
 
+import datetime
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
+
+from time_machine import Traveller
 
 from src.logger import logger
 
@@ -43,6 +47,7 @@ async def test_time_capsule_flow(async_client: AsyncClient):
     response = await async_client.post(
         "/time_capsules/",
         json={
+            "title": "my first time capsule",
             "is_private": True,
             "text": "example text",
             "lock_date": "2028-08-02T20:53:52.808Z",
@@ -133,3 +138,34 @@ async def test_time_capsule_flow(async_client: AsyncClient):
     )
     assert response.status_code == 404  # Капсулы больше нету
     # ---------------------------------------------------------------------------- #
+
+
+async def test_open_capsule(
+    async_client: AsyncClient,
+    get_auth_token: Callable[[], Awaitable[str]],
+    capsule_time: dict,
+    frozen_time: Traveller,
+):
+    """Тест на открытие капсулы времени для получения доступа к тексту."""
+    assert "id" in capsule_time
+
+    response = await async_client.get(
+        f"/time_capsules/{capsule_time['id']}",
+        headers={"Authorization": f"Bearer {await get_auth_token()}"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    # Текст ещё недоступен
+    assert data["text"] != capsule_time["text"]
+
+    frozen_time.shift(datetime.timedelta(days=365 * 1))
+
+    response = await async_client.get(
+        f"/time_capsules/{capsule_time['id']}",
+        headers={"Authorization": f"Bearer {await get_auth_token()}"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    logger.debug("Ответ сервера", data=response.json())
+    # Текст уже доступен
+    assert data["text"] == capsule_time["text"]

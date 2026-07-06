@@ -158,17 +158,20 @@ async def get_time_capsule(
     if not time_capsule:
         raise HTTPException(status_code=404, detail="Not found")
 
+    response = TimeCapsuleResponce.model_validate(time_capsule)
+
     if time_capsule.lock_date > datetime.now(UTC):
         # Текст капсулы ещё закрыт
-        time_capsule.text = ""
-    elif not time_capsule.is_open:
+        response.text = ""
+    elif time_capsule.lock_date < datetime.now(UTC) and not time_capsule.is_open:
         time_capsule.open_date = datetime.now(UTC)
         time_capsule.is_open = True
         time_capsule.is_locked = False
         await db.commit()
         await db.refresh(time_capsule)
+        response = TimeCapsuleResponce.model_validate(time_capsule)
 
-    return TimeCapsuleResponce.model_validate(time_capsule)
+    return response
 
 
 @router.patch("/{capsule_id}", response_model=TimeCapsuleResponce, status_code=200)
