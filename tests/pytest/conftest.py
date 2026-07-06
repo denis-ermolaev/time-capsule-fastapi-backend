@@ -1,7 +1,9 @@
 """conftest.py с изоляцией через очистку таблиц после каждого теста."""
 
 import asyncio
+import json
 from collections.abc import Awaitable, Callable
+from typing import Annotated
 
 import pytest
 import time_machine
@@ -10,9 +12,14 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from src.app import app
+from src.auth.schemas import TokenOut, UserCreate, UserOut
 from src.database import Base
 from src.db_depends import get_async_db
 from src.settings import settings
+from src.time_capsule.schemas import (
+    TimeCapsuleCreateRequest,
+    TimeCapsuleWithTextResponse,
+)
 
 
 # Переменные окружения ----
@@ -88,7 +95,7 @@ def event_loop():
 
 
 # Заморозка времени ----
-@pytest.fixture(autouse=True, scope="session")
+@pytest.fixture(autouse=True)
 def frozen_time():
     """Замораживает время для всех фикстур и тестов."""
     traveller = time_machine.travel("2026-01-01 00:00:00+00:00")
@@ -110,7 +117,7 @@ async def get_auth_token(async_client: AsyncClient) -> Callable[[], Awaitable[st
         },
     )
 
-    async def auth_token() -> str:
+    async def _get_auth_token() -> str:
         response = await async_client.post(
             "/auth/login",
             json={
@@ -121,7 +128,7 @@ async def get_auth_token(async_client: AsyncClient) -> Callable[[], Awaitable[st
         )
         return response.json()["access_token"]
 
-    return auth_token
+    return _get_auth_token
 
 
 @pytest.fixture
@@ -141,3 +148,71 @@ async def capsule_time(
         headers={"Authorization": f"Bearer {await get_auth_token()}"},
     )
     return response.json()
+
+
+@pytest.fixture
+async def create_time_capsule(
+    async_client: AsyncClient,
+):
+    """Фабрика для создания капсулы времени."""
+
+    async def _create_time_capsule(
+        data: TimeCapsuleCreateRequest,
+        auth_token: str,
+    ) -> TimeCapsuleWithTextResponse:
+        response = await async_client.post(
+            "/time_capsules/",
+            json=json.loads(data.model_dump_json()),
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        return TimeCapsuleWithTextResponse(**response.json())
+
+    return _create_time_capsule
+
+
+type_create_user = Callable[
+    [UserCreate],
+    Awaitable[UserOut],
+]
+
+
+@pytest.fixture
+async def create_user(
+    async_client: AsyncClient,
+):
+    """Фабрика для создания пользователей."""
+
+    async def _create_user(
+        data: UserCreate,
+    ) -> UserOut:
+        response = await async_client.post(
+            "/auth/register",
+            json=json.loads(data.model_dump_json()),
+        )
+        return UserOut(**response.json())
+
+    return _create_user
+
+
+type_login_user = Callable[
+    [UserCreate],
+    Awaitable[Annotated[str, "access_token"]],
+]
+
+
+@pytest.fixture
+async def login_user(
+    async_client: AsyncClient,
+):
+    """Фабрика для входа по данным пользователя."""
+
+    async def _login_user(
+        data: UserCreate,
+    ) -> Annotated[str, "access_token"]:
+        response = await async_client.post(
+            "/auth/login",
+            json=json.loads(data.model_dump_json()),
+        )
+        return TokenOut(**response.json()).access_token
+
+    return _login_user

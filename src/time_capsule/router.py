@@ -24,7 +24,7 @@ router = APIRouter(prefix="/time_capsules", tags=["time_capsules"])
 
 
 @router.get("/", status_code=200)
-async def get_time_capsules(  # noqa: C901
+async def get_time_capsules(  # noqa: C901, PLR0912
     db: Annotated[
         AsyncSession,
         Depends(get_async_db),
@@ -57,8 +57,10 @@ async def get_time_capsules(  # noqa: C901
     if filters.get("is_private"):
         conditions.append(TimeCapsule.is_private == filters["is_private"])
 
-    if filters.get("is_other_users"):
+    if filters.get("is_other_users") and filters["is_other_users"]:
         conditions.append(TimeCapsule.user != user)
+    if filters.get("is_mine") and filters["is_mine"]:
+        conditions.append(TimeCapsule.user == user)
 
     if filters.get("is_locked"):
         conditions.append(TimeCapsule.is_locked == filters["is_locked"])

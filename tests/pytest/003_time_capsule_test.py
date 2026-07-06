@@ -4,12 +4,23 @@ import datetime
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
+from conftest import type_create_user, type_login_user
 from time_machine import Traveller
 
+from src.auth.schemas import UserCreate
 from src.logger import logger
+from src.time_capsule.schemas import (
+    TimeCapsuleCreateRequest,
+    TimeCapsuleWithTextResponse,
+)
 
 if TYPE_CHECKING:
     from httpx2 import AsyncClient
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+#                              Интеграционный тест                             #
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
 
 async def test_time_capsule_flow(async_client: AsyncClient):
@@ -140,6 +151,44 @@ async def test_time_capsule_flow(async_client: AsyncClient):
     # ---------------------------------------------------------------------------- #
 
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+#                                  Тест фабрик                                 #
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+
+async def test_factory_create_time_capsule(
+    create_time_capsule: Callable[
+        [TimeCapsuleCreateRequest, str],
+        Awaitable[TimeCapsuleWithTextResponse],
+    ],
+    create_user: type_create_user,
+    login_user: type_login_user,
+):
+    """Тестирование фабрики по созданию капсул времени (create_time_capsule)."""
+    user = UserCreate(
+        username="test_user",
+        email="test@example.com",
+        password="strong124",  # noqa: S106
+    )
+    await create_user(user)
+    access_token = await login_user(user)
+    time_capsule = await create_time_capsule(
+        TimeCapsuleCreateRequest(
+            title="my first test time capsule",
+            is_private=True,
+            text="example text",
+            lock_date=datetime.datetime.fromisoformat("2026-02-01 00:00:00"),
+        ),
+        access_token,
+    )
+    assert "text" in time_capsule.model_dump()
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+#                           Открытие капсулы времени                           #
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+
 async def test_open_capsule(
     async_client: AsyncClient,
     get_auth_token: Callable[[], Awaitable[str]],
@@ -167,3 +216,140 @@ async def test_open_capsule(
     logger.debug("Ответ сервера", data=response.json())
     # Текст уже доступен
     assert data["text"] == capsule_time["text"]
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+#                             Список капсул времени                            #
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+
+async def test_list_view(
+    async_client: AsyncClient,
+    create_time_capsule: Callable[
+        [TimeCapsuleCreateRequest, str],
+        Awaitable[TimeCapsuleWithTextResponse],
+    ],
+    create_user: type_create_user,
+    login_user: type_login_user,
+    frozen_time: Traveller,
+):
+    """Тестирование end-point для получения списка капсул времени."""
+    # 1. Подготовка пользователей и их access_token ----
+    first_user = UserCreate(
+        username="test_user",
+        email="test@example.com",
+        password="strong124",  # noqa: S106
+    )
+    second_user = UserCreate(
+        username="test_user_2",
+        email="test_2@example.com",
+        password="strong124",  # noqa: S106
+    )
+    await create_user(first_user)
+    await create_user(second_user)
+    first_access_token = await login_user(first_user)
+    second_access_token = await login_user(second_user)
+
+    # 2. Подготовка капсул времени ----
+    # capsule_(Номер пользователя)_(Номер капсулы у этого пользователя)
+    capsule_01_01 = await create_time_capsule(
+        TimeCapsuleCreateRequest(
+            title="Test#1 First User",
+            is_private=True,
+            text="example text: Test#1 First User",
+            lock_date=datetime.datetime.fromisoformat("2026-10-01 00:00:00"),
+        ),
+        first_access_token,
+    )
+    capsule_02_01 = await create_time_capsule(
+        TimeCapsuleCreateRequest(
+            title="Test#1 Second User",
+            is_private=True,
+            text="example text: Test#1 Second User",
+            lock_date=datetime.datetime.fromisoformat("2026-10-01 00:00:00"),
+        ),
+        second_access_token,
+    )
+
+    # Смещение времени
+    frozen_time.shift(datetime.timedelta(days=36))
+    # Обновление токенов
+    first_access_token = await login_user(first_user)
+    second_access_token = await login_user(second_user)
+
+    capsule_01_02 = await create_time_capsule(
+        TimeCapsuleCreateRequest(
+            title="Test#2 First User",
+            is_private=False,
+            text="example text: Test#2 First User",
+            lock_date=datetime.datetime.fromisoformat("2026-03-01 00:00:00"),
+        ),
+        first_access_token,
+    )
+    capsule_02_02 = await create_time_capsule(
+        TimeCapsuleCreateRequest(
+            title="Test#2 Second User",
+            is_private=True,
+            text="example text: Test#2 Second User",
+            lock_date=datetime.datetime.fromisoformat("2026-03-01 00:00:00"),
+        ),
+        second_access_token,
+    )
+    # 3. Списки для тестов ----
+    # Капсулы времени, которые видны первому пользователю
+    first_user_can_view = [capsule_01_01.id, capsule_01_02.id]
+
+    # Капсулы времени, которые видны второму пользователю
+    second_user_can_view = [capsule_02_01.id, capsule_01_02.id, capsule_02_02.id]
+    # Сортировка по порядку создания для второго пользователя
+    order_by_create_date = [capsule_02_01.id, capsule_02_02.id]
+
+    # 4. Тесты эндпоинта ----
+    ## 4.1. Второму пользователю видно 3 капсулы времени (2-е своих и 1-у чужую) ----
+    response = await async_client.get(
+        "/time_capsules/",
+        params={
+            "page": 1,
+            "page_size": 10,
+        },
+        headers={"Authorization": f"Bearer {second_access_token}"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "total" in data
+    assert data["total"] == len(second_user_can_view)
+    # ✅ Проверка, что чужая публичная капсула действительно публичная
+    assert not next(
+        i["is_private"] for i in data["items"] if i["id"] == capsule_01_02.id
+    )
+
+    ## 4.2. Первому пользователю видно 2 капсулы времени (только 2-е своих) ----
+    response = await async_client.get(
+        "/time_capsules/",
+        params={
+            "page": 1,
+            "page_size": 10,
+        },
+        headers={"Authorization": f"Bearer {first_access_token}"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "total" in data
+    assert data["total"] == len(first_user_can_view)
+
+    ## 4.3. Сортировка: первой в списке идёт капсула, созданная позже & Только капсулы второго пользователя (2-е вместо 3-х) ----
+    response = await async_client.get(
+        "/time_capsules/",
+        params={
+            "page": 1,
+            "page_size": 10,
+            "order_by": "-create_date",
+            "is_mine": True,
+        },
+        headers={"Authorization": f"Bearer {second_access_token}"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    logger.debug("Ответ сервера", data=data)
+    # Сортировка наоборот
+    assert order_by_create_date[::-1] == [i["id"] for i in data["items"]]

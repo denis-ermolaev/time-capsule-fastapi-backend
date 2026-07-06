@@ -84,6 +84,7 @@ class TimeCapsuleFilterParams(BaseModel):
     is_private: bool | None = None
 
     is_other_users: bool | None = None
+    is_mine: bool | None = None
 
     is_locked: bool | None = None
 
