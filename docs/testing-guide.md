@@ -1914,4 +1914,51 @@ pip install pytest pytest-cov pytest-asyncio httpx freezegun factory_boy respons
 
 ---
 
+## time_machine
+```python
+import time_machine
+
+# Фикстура для pytest
+@pytest.fixture
+def frozen_time():
+    """Заморозка времени в будущем, чтобы lock_date был в прошлом."""
+    traveller = time_machine.travel("2028-01-01 00:00:00+00:00")
+    traveller.start()
+    yield
+    traveller.stop()
+
+# В тесте: сдвиг времени
+async def test_capsule_unlock(async_client, access_token):
+    with time_machine.travel("2028-01-01 00:00:00+00:00") as traveller:
+        # Создаём капсулу с lock_date = 2029-01-01
+        response = await async_client.post(
+            "/time_capsules/",
+            json={
+                "title": "future capsule",
+                "text": "secret",
+                "lock_date": "2029-01-01T00:00:00Z",
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        capsule_id = response.json()["id"]
+
+        # Пытаемся открыть — locked
+        response = await async_client.get(
+            f"/time_capsules/{capsule_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.json()["is_locked"] is True
+
+        # Сдвигаем время на 2 года вперёд
+        traveller.shift(datetime.timedelta(days=365*2))
+
+        # Теперь капсула должна открыться
+        response = await async_client.get(
+            f"/time_capsules/{capsule_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.json()["is_locked"] is False
+        assert "secret" in response.json()["text"]
+```
+
 *Создано для проекта time-capsule-backend. 2026.*
