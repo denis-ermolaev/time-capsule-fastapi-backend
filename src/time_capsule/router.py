@@ -38,48 +38,46 @@ async def get_time_capsules(  # noqa: C901, PLR0912
     page_size: int = 10,
 ) -> TimeCapsuleListResponse:
     """Получить список капсул времени."""
-    filters = filters.model_dump()
-
     # Сортировка
     order_by = TimeCapsule.create_date
-    if filters.get("order_by"):
-        raw_order_by = filters["order_by"].split("-")
-        # Длинна 2, если был -, т.е desc
-        # Иначе длинна 1, т.е asc
+    if filters.order_by is not None:
+        raw_order_by = filters.order_by.split("-")
+        # Длинна 2, если был -, т.е desc - ["", "create_date"]
+        # Иначе длинна 1, т.е asc - ["create_date"]
         if len(raw_order_by) == 2:  # noqa: PLR2004
             order_by = desc(getattr(TimeCapsule, raw_order_by[1]))
         else:
             order_by = getattr(TimeCapsule, raw_order_by[0])
 
     # Фильтры
-    conditions = [true()]
+    conditions = [true()]  # Если фильтров нет, то всё True
 
-    if filters.get("is_private"):
-        conditions.append(TimeCapsule.is_private == filters["is_private"])
+    if filters.is_private is not None:
+        conditions.append(TimeCapsule.is_private == filters.is_private)
 
-    if filters.get("is_other_users") and filters["is_other_users"]:
+    if filters.is_other_users is True:
         conditions.append(TimeCapsule.user != user)
-    if filters.get("is_mine") and filters["is_mine"]:
+    if filters.is_mine is True:
         conditions.append(TimeCapsule.user == user)
 
-    if filters.get("is_locked"):
-        conditions.append(TimeCapsule.is_locked == filters["is_locked"])
+    if filters.is_locked is not None:
+        conditions.append(TimeCapsule.is_locked == filters.is_locked)
 
-    if filters.get("is_open"):
-        conditions.append(TimeCapsule.is_open == filters["is_open"])
+    if filters.is_open is not None:
+        conditions.append(TimeCapsule.is_open == filters.is_open)
 
-    if filters.get("locked_at_from"):
-        conditions.append(TimeCapsule.lock_date >= filters["locked_at_from"])
-    if filters.get("locked_at_to"):
-        conditions.append(TimeCapsule.lock_date <= filters["locked_at_to"])
+    if filters.locked_at_from is not None:
+        conditions.append(TimeCapsule.lock_date >= filters.locked_at_from)
+    if filters.locked_at_to is not None:
+        conditions.append(TimeCapsule.lock_date <= filters.locked_at_to)
 
-    if filters.get("created_at_from"):
-        conditions.append(TimeCapsule.create_date >= filters["created_at_from"])
-    if filters.get("created_at_to"):
-        conditions.append(TimeCapsule.create_date <= filters["created_at_to"])
+    if filters.created_at_from is not None:
+        conditions.append(TimeCapsule.create_date >= filters.created_at_from)
+    if filters.created_at_to is not None:
+        conditions.append(TimeCapsule.create_date <= filters.created_at_to)
 
-    if filters.get("title"):
-        conditions.append(TimeCapsule.title.ilike(f"%{filters['title']}%"))
+    if filters.title is not None and filters.title:  # Пустую строку не ищем
+        conditions.append(TimeCapsule.title.ilike(f"%{filters.title}%"))
 
     base_query = (
         select(TimeCapsule)
