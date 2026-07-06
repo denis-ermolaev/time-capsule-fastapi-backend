@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path
-from sqlalchemy import and_, func, or_, select, true
+from sqlalchemy import and_, desc, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.deps import get_current_user
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/time_capsules", tags=["time_capsules"])
 
 
 @router.get("/", status_code=201)
-async def get_time_capsules(  # noqa: C901
+async def get_time_capsules(  # noqa: C901, PLR0912
     db: Annotated[
         AsyncSession,
         Depends(get_async_db),
@@ -37,13 +37,26 @@ async def get_time_capsules(  # noqa: C901
     page_size: int = 10,
 ) -> TimeCapsuleListResponce:
     """Получить список капсул времени."""
-    # TODO: Добавить возможность сортировки order_by  # noqa: FIX002, TD002, TD003
     filters = filters.model_dump()
+
+    # Сортировка
+    order_by = TimeCapsule.create_date
+    if filters.get("order_by"):
+        raw_order_by = filters["order_by"].split("-")
+        # Длинна 2, если был -, т.е desc
+        # Иначе длинна 1, т.е asc
+        if len(raw_order_by) == 2:  # noqa: PLR2004
+            order_by = desc(getattr(TimeCapsule, raw_order_by[1]))
+        else:
+            order_by = getattr(TimeCapsule, raw_order_by[0])
+
+    # Фильтры
     conditions = [true()]
+
     if filters.get("is_private"):
         conditions.append(TimeCapsule.is_private == filters["is_private"])
 
-    if filters.get("is_not_mine"):
+    if filters.get("is_other_users"):
         conditions.append(TimeCapsule.user != user)
 
     if filters.get("is_locked"):
@@ -79,6 +92,7 @@ async def get_time_capsules(  # noqa: C901
                 ),
             )
             .where(and_(*conditions))
+            .order_by(order_by)
             .offset((page - 1) * page_size)
             .limit(page_size),
         )

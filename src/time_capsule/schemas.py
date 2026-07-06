@@ -1,6 +1,7 @@
 """Pydantic схемы для капсул времени."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -55,11 +56,15 @@ class TimeCapsuleUpdateRequest(BaseModel):
 class TimeCapsuleFilterParams(BaseModel):
     """Фильтры для списка капсул времени."""
 
+    order_by: (
+        Literal["create_date", "lock_date", "-create_date", "-lock_date"] | None
+    ) = None
+
     title: str | None = None
 
     is_private: bool | None = None
 
-    is_not_mine: bool | None = None
+    is_other_users: bool | None = None
 
     is_locked: bool | None = None
 
