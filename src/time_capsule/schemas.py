@@ -17,7 +17,7 @@ class TimeCapsuleCreateRequest(BaseModel):
     lock_date: datetime
 
 
-class TimeCapsuleResponce(BaseModel):
+class TimeCapsuleResponse(BaseModel):
     """Данные по капсуле времени."""
 
     model_config = ConfigDict(from_attributes=True)
@@ -35,7 +35,7 @@ class TimeCapsuleResponce(BaseModel):
     open_date: datetime | None = None
 
 
-class TimeCapsuleWithTextResponce(BaseModel):
+class TimeCapsuleWithTextResponse(BaseModel):
     """Данные по капсуле времени."""
 
     model_config = ConfigDict(from_attributes=True)
@@ -54,10 +54,10 @@ class TimeCapsuleWithTextResponce(BaseModel):
     open_date: datetime | None = None
 
 
-class TimeCapsuleListResponce(BaseModel):
+class TimeCapsuleListResponse(BaseModel):
     """Пагинация для списка капсул времени."""
 
-    items: list[TimeCapsuleResponce]
+    items: list[TimeCapsuleResponse]
     total: int
     page: int
     page_size: int

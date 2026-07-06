@@ -14,10 +14,10 @@ from src.time_capsule.models import TimeCapsule
 from src.time_capsule.schemas import (
     TimeCapsuleCreateRequest,
     TimeCapsuleFilterParams,
-    TimeCapsuleListResponce,
-    TimeCapsuleResponce,
+    TimeCapsuleListResponse,
+    TimeCapsuleResponse,
     TimeCapsuleUpdateRequest,
-    TimeCapsuleWithTextResponce,
+    TimeCapsuleWithTextResponse,
 )
 
 router = APIRouter(prefix="/time_capsules", tags=["time_capsules"])
@@ -36,7 +36,7 @@ async def get_time_capsules(  # noqa: C901
     filters: Annotated[TimeCapsuleFilterParams, Depends()],
     page: int = 1,
     page_size: int = 10,
-) -> TimeCapsuleListResponce:
+) -> TimeCapsuleListResponse:
     """Получить список капсул времени."""
     filters = filters.model_dump()
 
@@ -99,9 +99,9 @@ async def get_time_capsules(  # noqa: C901
         await db.scalars(base_query.offset((page - 1) * page_size).limit(page_size))
     ).all()
 
-    items = [TimeCapsuleResponce.model_validate(i) for i in capsules]
+    items = [TimeCapsuleResponse.model_validate(i) for i in capsules]
 
-    return TimeCapsuleListResponce(
+    return TimeCapsuleListResponse(
         items=items,
         total=total,
         page=page,
@@ -109,7 +109,7 @@ async def get_time_capsules(  # noqa: C901
     )
 
 
-@router.post("/", response_model=TimeCapsuleWithTextResponce, status_code=201)
+@router.post("/", response_model=TimeCapsuleWithTextResponse, status_code=201)
 async def create_time_capsule(
     time_capsule: TimeCapsuleCreateRequest,
     db: Annotated[
@@ -120,7 +120,7 @@ async def create_time_capsule(
         User,
         Depends(get_current_user),
     ],
-) -> TimeCapsuleWithTextResponce:
+) -> TimeCapsuleWithTextResponse:
     """Создать капсулу времени."""
     db_time_capsule = TimeCapsule(
         user_id=user.id,
@@ -130,10 +130,10 @@ async def create_time_capsule(
     db.add(db_time_capsule)
     await db.commit()
     await db.refresh(db_time_capsule)
-    return TimeCapsuleWithTextResponce.model_validate(db_time_capsule)
+    return TimeCapsuleWithTextResponse.model_validate(db_time_capsule)
 
 
-@router.get("/{capsule_id}", response_model=TimeCapsuleResponce, status_code=200)
+@router.get("/{capsule_id}", response_model=TimeCapsuleResponse, status_code=200)
 async def get_time_capsule(
     capsule_id: Annotated[int, Path(ge=1, description="id конкретной капсулы времени")],
     user: Annotated[
@@ -144,7 +144,7 @@ async def get_time_capsule(
         AsyncSession,
         Depends(get_async_db),
     ],
-) -> TimeCapsuleResponce:
+) -> TimeCapsuleResponse:
     """Получить капсулу времени по id."""
     time_capsule = (
         await db.scalars(
@@ -158,12 +158,12 @@ async def get_time_capsule(
     if not time_capsule:
         raise HTTPException(status_code=404, detail="Not found")
 
-    return TimeCapsuleResponce.model_validate(time_capsule)
+    return TimeCapsuleResponse.model_validate(time_capsule)
 
 
 @router.post(
     "/{capsule_id}",
-    response_model=TimeCapsuleWithTextResponce,
+    response_model=TimeCapsuleWithTextResponse,
     status_code=200,
 )
 async def open_time_capsule(
@@ -176,7 +176,7 @@ async def open_time_capsule(
         AsyncSession,
         Depends(get_async_db),
     ],
-) -> TimeCapsuleWithTextResponce:
+) -> TimeCapsuleWithTextResponse:
     """Открыть капсулу времени по id."""
     time_capsule = (
         await db.scalars(
@@ -190,7 +190,7 @@ async def open_time_capsule(
     if not time_capsule:
         raise HTTPException(status_code=404, detail="Not found")
 
-    response = TimeCapsuleWithTextResponce.model_validate(time_capsule)
+    response = TimeCapsuleWithTextResponse.model_validate(time_capsule)
 
     if time_capsule.lock_date > datetime.now(UTC):
         raise HTTPException(status_code=403, detail="Not open")
@@ -200,12 +200,12 @@ async def open_time_capsule(
         time_capsule.is_locked = False
         await db.commit()
         await db.refresh(time_capsule)
-        response = TimeCapsuleWithTextResponce.model_validate(time_capsule)
+        response = TimeCapsuleWithTextResponse.model_validate(time_capsule)
 
     return response
 
 
-@router.patch("/{capsule_id}", response_model=TimeCapsuleResponce, status_code=200)
+@router.patch("/{capsule_id}", response_model=TimeCapsuleResponse, status_code=200)
 async def update_time_capsule(
     capsule_id: Annotated[int, Path(ge=1, description="id конкретной капсулы времени")],
     update_data: TimeCapsuleUpdateRequest,
@@ -217,7 +217,7 @@ async def update_time_capsule(
         AsyncSession,
         Depends(get_async_db),
     ],
-) -> TimeCapsuleResponce:
+) -> TimeCapsuleResponse:
     """Обновить капсулу времени по id."""
     # 1. Получаем текущую капсулу времени
     time_capsule = (
@@ -240,7 +240,7 @@ async def update_time_capsule(
     # 4. refresh — чтобы получить обновлённые данные из БД (вычисляемые поля, триггеры)
     await db.refresh(time_capsule)
 
-    return TimeCapsuleResponce.model_validate(time_capsule)
+    return TimeCapsuleResponse.model_validate(time_capsule)
 
 
 @router.delete("/{capsule_id}", status_code=204)
