@@ -223,7 +223,7 @@ async def test_open_capsule(
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
 
-async def test_list_view(
+async def test_list_view(  # noqa: PLR0915
     async_client: AsyncClient,
     create_time_capsule: Callable[
         [TimeCapsuleCreateRequest, str],
@@ -296,13 +296,17 @@ async def test_list_view(
         second_access_token,
     )
     # 3. Списки для тестов ----
-    # Капсулы времени, которые видны первому пользователю
     first_user_can_view = [capsule_01_01.id, capsule_01_02.id]
+    """Капсулы времени, которые видны первому пользователю"""
 
-    # Капсулы времени, которые видны второму пользователю
     second_user_can_view = [capsule_02_01.id, capsule_01_02.id, capsule_02_02.id]
-    # Сортировка по порядку создания для второго пользователя
+    """Капсулы времени, которые видны второму пользователю"""
+
+    second_user_capsules = [capsule_02_01.id, capsule_02_02.id]
+    """Капсулы принадлежащие второму пользователю"""
+
     order_by_create_date = [capsule_02_01.id, capsule_02_02.id]
+    """Сортировка по порядку создания для второго пользователя"""
 
     # 4. Тесты эндпоинта ----
     ## 4.1. Второму пользователю видно 3 капсулы времени (2-е своих и 1-у чужую) ----
@@ -351,5 +355,89 @@ async def test_list_view(
     assert response.status_code == 200
     data = response.json()
     logger.debug("Ответ сервера", data=data)
-    # Сортировка наоборот
+    # ✅ Только капсулы второго пользователя
+    assert sorted(second_user_capsules) == sorted([i["id"] for i in data["items"]])
+    # ✅ Сортировка наоборот
     assert order_by_create_date[::-1] == [i["id"] for i in data["items"]]
+
+    response = await async_client.get(
+        "/time_capsules/",
+        params={
+            "page": 1,
+            "page_size": 10,
+            "order_by": "create_date",
+            "is_mine": True,
+        },
+        headers={"Authorization": f"Bearer {second_access_token}"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    logger.debug("Ответ сервера", data=data)
+    # ✅ Только капсулы второго пользователя
+    assert sorted(second_user_capsules) == sorted([i["id"] for i in data["items"]])
+    # ✅ Сортировка наоборот
+    assert order_by_create_date == [i["id"] for i in data["items"]]
+
+    ## 4.4. Поиск по title ----
+    response = await async_client.get(
+        "/time_capsules/",
+        params={
+            "title": "2",
+            "is_mine": True,
+        },
+        headers={"Authorization": f"Bearer {second_access_token}"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    # ✅ По "2" найдена капсула с названием Test#2 Second User
+    assert capsule_02_02.title == next(i["title"] for i in data["items"])
+    ## 4.5. Создана с ... по ... ----
+    response = await async_client.get(
+        "/time_capsules/",
+        params={
+            "created_at_from": "2026-01-01 00:00:00",
+            "created_at_to": "2026-02-01 00:00:00",
+            "is_mine": True,
+        },
+        headers={"Authorization": f"Bearer {second_access_token}"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    # ✅ Первая капсула создана в промежутки между этими датами
+    assert capsule_02_01.id == next(i["id"] for i in data["items"])
+    ## 4.6. Откроется с ... по ... ----
+    response = await async_client.get(
+        "/time_capsules/",
+        params={
+            "locked_at_from": "2026-02-01 00:00:00",
+            "locked_at_to": "2026-04-01 00:00:00",
+            "is_mine": True,
+        },
+        headers={"Authorization": f"Bearer {second_access_token}"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    # ✅ Первая капсула откроется в этом промежутке
+    assert capsule_02_02.id == next(i["id"] for i in data["items"])
+    ## 4.7. Публичная + моя ----
+    response = await async_client.get(
+        "/time_capsules/",
+        params={"is_mine": True, "is_private": False},
+        headers={"Authorization": f"Bearer {first_access_token}"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    # ✅ Вторая капсула является публичной (is_private - False)
+    assert capsule_01_02.id == next(i["id"] for i in data["items"])
+    ## 4.8. Капсула другого пользователя ----
+    response = await async_client.get(
+        "/time_capsules/",
+        params={
+            "is_other_users": True,
+        },
+        headers={"Authorization": f"Bearer {second_access_token}"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    # ✅ Публичная капсула другого пользователя
+    assert capsule_01_02.id == next(i["id"] for i in data["items"])
