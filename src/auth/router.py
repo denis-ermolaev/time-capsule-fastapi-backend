@@ -5,11 +5,13 @@ from typing import TYPE_CHECKING, Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 
+from src.auth.deps import get_current_user
 from src.auth.jwt import create_access_token, create_refresh_token, decode_token
 from src.auth.models import User
 from src.auth.schemas import (
     AccessRequest,
     AccessResponse,
+    LoginRequest,
     RefreshRequest,
     TokenOut,
     UserCreate,
@@ -54,11 +56,11 @@ async def register(
 
 @router.post("/login", response_model=TokenOut)
 async def login(
-    body: UserCreate,
+    body: LoginRequest,
     db: Annotated[AsyncSession, Depends(get_async_db)],
 ) -> TokenOut:
     """Авторизация."""
-    result = await db.scalars(select(User).where(User.username == body.username))
+    result = await db.scalars(select(User).where(User.email == body.email))
     user = result.first()
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -104,3 +106,14 @@ async def access(
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return AccessResponse(message="ok")
+
+
+@router.get("/me", response_model=UserOut)
+async def me(
+    user: Annotated[
+        User,
+        Depends(get_current_user),
+    ],
+) -> UserOut:
+    """Проверка работоспособности access токена."""
+    return UserOut.model_validate(user)

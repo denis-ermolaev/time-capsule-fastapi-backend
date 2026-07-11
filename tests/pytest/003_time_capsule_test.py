@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from conftest import type_create_user, type_login_user
 from time_machine import Traveller
 
-from src.auth.schemas import UserCreate
+from src.auth.schemas import LoginRequest, UserCreate
 from src.logger import logger
 from src.time_capsule.schemas import (
     TimeCapsuleCreateRequest,
@@ -42,7 +42,7 @@ async def test_time_capsule_flow(async_client: AsyncClient):
     # 2. Логин ----
     response = await async_client.post(
         "/auth/login",
-        json={"username": "example", "email": "example@mail.ru", "password": "example"},
+        json={"email": "example@mail.ru", "password": "example"},
     )
 
     assert response.status_code == 200
@@ -170,8 +170,12 @@ async def test_factory_create_time_capsule(
         email="test@example.com",
         password="strong124",  # noqa: S106
     )
+    user_login = LoginRequest(
+        email="test@example.com",
+        password="strong124",  # noqa: S106
+    )
     await create_user(user)
-    access_token = await login_user(user)
+    access_token = await login_user(user_login)
     time_capsule = await create_time_capsule(
         TimeCapsuleCreateRequest(
             title="my first test time capsule",
@@ -245,10 +249,18 @@ async def test_list_view(  # noqa: PLR0915
         email="test_2@example.com",
         password="strong124",  # noqa: S106
     )
+    login_first_user = LoginRequest(
+        email="test@example.com",
+        password="strong124",  # noqa: S106
+    )
+    login_second_user = LoginRequest(
+        email="test_2@example.com",
+        password="strong124",  # noqa: S106
+    )
     await create_user(first_user)
     await create_user(second_user)
-    first_access_token = await login_user(first_user)
-    second_access_token = await login_user(second_user)
+    first_access_token = await login_user(login_first_user)
+    second_access_token = await login_user(login_second_user)
 
     # 2. Подготовка капсул времени ----
     # capsule_(Номер пользователя)_(Номер капсулы у этого пользователя)
@@ -274,8 +286,8 @@ async def test_list_view(  # noqa: PLR0915
     # Смещение времени
     frozen_time.shift(datetime.timedelta(days=36))
     # Обновление токенов
-    first_access_token = await login_user(first_user)
-    second_access_token = await login_user(second_user)
+    first_access_token = await login_user(login_first_user)
+    second_access_token = await login_user(login_second_user)
 
     capsule_01_02 = await create_time_capsule(
         TimeCapsuleCreateRequest(

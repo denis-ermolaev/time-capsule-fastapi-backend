@@ -12,7 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from src.app import app
-from src.auth.schemas import TokenOut, UserCreate, UserOut
+from src.auth.schemas import LoginRequest, TokenOut, UserCreate, UserOut
 from src.database import Base
 from src.db_depends import get_async_db
 from src.settings import settings
@@ -121,7 +121,6 @@ async def get_auth_token(async_client: AsyncClient) -> Callable[[], Awaitable[st
         response = await async_client.post(
             "/auth/login",
             json={
-                "username": "test_user",
                 "email": "test@example.com",
                 "password": "strong_password",
             },
@@ -195,7 +194,7 @@ async def create_user(
 
 
 type_login_user = Callable[
-    [UserCreate],
+    [LoginRequest],
     Awaitable[Annotated[str, "access_token"]],
 ]
 
@@ -207,7 +206,7 @@ async def login_user(
     """Фабрика для входа по данным пользователя."""
 
     async def _login_user(
-        data: UserCreate,
+        data: LoginRequest,
     ) -> Annotated[str, "access_token"]:
         response = await async_client.post(
             "/auth/login",

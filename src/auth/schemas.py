@@ -11,6 +11,13 @@ class UserCreate(BaseModel):
     password: str
 
 
+class LoginRequest(BaseModel):
+    """Вход пользователя по email и паролю."""
+
+    email: str
+    password: str
+
+
 class UserOut(BaseModel):
     """Выходные данные при создании пользователя."""
 
