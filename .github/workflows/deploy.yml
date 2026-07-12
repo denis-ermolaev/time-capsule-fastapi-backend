@@ -7,42 +7,18 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: api
-          POSTGRES_USER: api
-          POSTGRES_PASSWORD: test-password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - name: Build and run tests in Docker
+        run: >
+          docker compose --profile test run --rm
+          -e 'SECRET_KEY=ci-test-secret-key-min-32-chars-long!!'
+          test uv run pytest
 
-      - name: Install dependencies
-        run: uv sync
-
-      - name: Run migrations
-        run: uv run alembic upgrade head
-        env:
-          DB_HOST: localhost
-          DB_PASSWORD: test-password
-          SECRET_KEY: ci-test-secret-key-min-32-chars-long!!
-
-      - name: Run tests
-        run: uv run pytest
-        env:
-          DB_HOST: localhost
-          DB_PASSWORD: test-password
-          SECRET_KEY: ci-test-secret-key-min-32-chars-long!!
+      - name: Cleanup
+        if: always()
+        run: docker compose --profile test down --volumes
 
   deploy:
     needs: test
