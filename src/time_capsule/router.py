@@ -153,9 +153,9 @@ async def get_time_capsule(
     ).first()
 
     # Если капсула времени приватная и принадлежит другому пользователю -> 404
-    if time_capsule and time_capsule.user != user and time_capsule.is_private:
-        raise HTTPException(status_code=404, detail="Not found")
     if not time_capsule:
+        raise HTTPException(status_code=404, detail="Not found")
+    if time_capsule.user_id != user.id and time_capsule.is_private:
         raise HTTPException(status_code=404, detail="Not found")
 
     return TimeCapsuleResponse.model_validate(time_capsule)
@@ -185,9 +185,9 @@ async def open_time_capsule(
     ).first()
 
     # Если капсула времени приватная и принадлежит другому пользователю -> 404
-    if time_capsule and time_capsule.user != user and time_capsule.is_private:
-        raise HTTPException(status_code=404, detail="Not found")
     if not time_capsule:
+        raise HTTPException(status_code=404, detail="Not found")
+    if time_capsule.user_id != user.id and time_capsule.is_private:
         raise HTTPException(status_code=404, detail="Not found")
 
     response = TimeCapsuleWithTextResponse.model_validate(time_capsule)
