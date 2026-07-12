@@ -10,11 +10,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build and run tests in Docker
+      - name: Run migrations
         run: >
           docker compose --profile test run --rm
-          -e 'SECRET_KEY=ci-test-secret-key-min-32-chars-long!!'
-          test uv run pytest
+          -e SECRET_KEY=ci-test-secret-key-min-32-chars-long!!
+          test uv run --no-sync alembic upgrade head
+
+      - name: Run tests
+        run: >
+          docker compose --profile test run --rm
+          -e SECRET_KEY=ci-test-secret-key-min-32-chars-long!!
+          test uv run --no-sync pytest
 
       - name: Cleanup
         if: always()
