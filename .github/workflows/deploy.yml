@@ -1,0 +1,95 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: api
+          POSTGRES_USER: api
+          POSTGRES_PASSWORD: test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run migrations
+        run: uv run alembic upgrade head
+        env:
+          DB_HOST: localhost
+          DB_PASSWORD: test-password
+          SECRET_KEY: ci-test-secret-key-min-32-chars-long!!
+
+      - name: Run tests
+        run: uv run pytest
+        env:
+          DB_HOST: localhost
+          DB_PASSWORD: test-password
+          SECRET_KEY: ci-test-secret-key-min-32-chars-long!!
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: >-
+            docker-compose.prod.yml,
+            Dockerfile,
+            .dockerignore,
+            pyproject.toml,
+            uv.lock,
+            alembic.ini,
+            src/,
+            migrations/
+          target: /opt/time-capsule
+
+      - name: Create .env and start containers
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /opt/time-capsule || exit 1
+
+            # Создаём .env из секретов
+            cat > .env << 'ENVEOF'
+            ${{ secrets.SERVER_ENV }}
+            ENVEOF
+
+            # Caddyfile
+            cat > Caddyfile << 'CADDYEOF'
+            ${{ secrets.CADDYFILE }}
+            CADDYEOF
+
+            # Сборка и запуск
+            docker compose -f docker-compose.prod.yml up --build -d
+
+            # Проверка через 5 секунд
+            sleep 5
+            docker compose -f docker-compose.prod.yml ps

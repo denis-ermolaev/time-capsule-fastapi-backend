@@ -22,4 +22,4 @@ DEV.md
 opencode.json
 
 # 5. На время разработки не комитить историю миграций ----
-migrations/versions/*
+# migrations/versions/*
