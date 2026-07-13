@@ -13,6 +13,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - time-capsule-net
 
   web:
     build: .
@@ -27,6 +29,8 @@ services:
       db:
         condition: service_healthy
     restart: always
+    networks:
+      - time-capsule-net
 
   caddy:
     image: caddy:alpine
@@ -40,8 +44,15 @@ services:
     depends_on:
       - web
     restart: always
+    networks:
+      - time-capsule-net
 
 volumes:
   postgres_data:
   caddy_data:
   caddy_config:
+
+networks:
+  time-capsule-net:
+    name: time-capsule-net
+    driver: bridge

@@ -97,8 +97,12 @@ ROOT_PATH=
 ### 2.2 Содержимое `CADDYFILE`
 
 ```
-api.твой-домен.ru {
+api.домен.ru {
     reverse_proxy web:8000
+}
+
+поддомен.домен.ru {
+    reverse_proxy frontend:3000
 }
 ```
 
