@@ -234,10 +234,15 @@ async def update_time_capsule(
     for field, value in update_data.model_dump(exclude_unset=True).items():
         setattr(time_capsule, field, value)
 
-    # 3. Сохраняем — UPDATE в БД (автоматически, без db.add())
+    # 3. Делаем капсулу снова закрытой и сбрасываем время открытия
+    time_capsule.is_locked = False
+    time_capsule.is_open = False
+    time_capsule.open_date = None
+
+    # 4. Сохраняем — UPDATE в БД (автоматически, без db.add())
     await db.commit()
 
-    # 4. refresh — чтобы получить обновлённые данные из БД (вычисляемые поля, триггеры)
+    # 5. refresh — чтобы получить обновлённые данные из БД (вычисляемые поля, триггеры)
     await db.refresh(time_capsule)
 
     return TimeCapsuleResponse.model_validate(time_capsule)
