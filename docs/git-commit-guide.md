@@ -551,6 +551,7 @@ git push origin main # Два push
 git push personal main
 
 git remote set-url --add --push origin https://github.com/username/personal-repo.git # Две ссылки для origin
+
 git push origin main # Один push сразу в два репозитория
 ```
 

@@ -1,10 +1,10 @@
 .DEFAULT_GOAL := help
 
 COMPOSE := docker compose
-WEB := $(COMPOSE) exec web
+WEB := $(COMPOSE) -f docker-compose.dev.yml exec web
 
 # Самые важные команды
-.PHONY: pre-commit_all test review compose_without_build make_migrations migrations
+.PHONY: pre-commit_all test_all review compose_without_build make_migrations migrations
 
 ## Справка
 help:
@@ -25,23 +25,23 @@ pre-commit_all:
 	uv run pre-commit run --all-files --hook-stage pre-push
 
 
-# Test workflow: Поднимаем контейнеры, запускаем тесты, в конце работы закрываем контейнеры или при необходимости миграции ----
+# Test workflow: Поднимаем контейнеры, запускаем тесты в ходе разработки, в конце работы закрываем контейнеры или при необходимости миграции ----
 ## Поднять тестовые контейнеры и сделать миграцию
 up_test:
-	$(COMPOSE) --profile test up -d --no-build
-	$(COMPOSE) exec -T test uv run alembic upgrade head
+	$(COMPOSE) -f docker-compose.test.yml up -d --no-build
+	$(COMPOSE) -f docker-compose.test.yml exec -T test uv run alembic upgrade head
 
 ## Запустить тесты в тестовом окружении
 test:
-	$(COMPOSE) exec -T test uv run pytest
+	$(COMPOSE) -f docker-compose.test.yml exec -T test uv run pytest
 
 ## Тесты по docstring в тестовом окружении
 test_docs:
-	$(COMPOSE) exec -T test uv run python -m pytest --doctest-modules src/
+	$(COMPOSE) -f docker-compose.test.yml exec -T test uv run python -m pytest --doctest-modules src/
 
 ## Удалить тестовые контейнеры
 down_test:
-	$(COMPOSE) --profile test down
+	$(COMPOSE) -f docker-compose.test.yml down
 
 ## Единная команда для запуска тестов
 test_all:
@@ -80,17 +80,19 @@ shell:
 	$(WEB) bash
 ## Запустить контейнер с пересборкой
 compose_build:
-	$(COMPOSE) --profile main up -d --build
+	$(COMPOSE) -f docker-compose.dev.yml up -d --build
 
 ## Запустить контейнер без пересборки
 compose_without_build:
-	$(COMPOSE) --profile main up -d --no-build
+	$(COMPOSE) -f docker-compose.dev.yml up -d --no-build
 
+## Остановить контейнр для разработки
 down_web:
-	$(COMPOSE) --profile main down
+	$(COMPOSE) -f docker-compose.dev.yml down
 
+# Собрать образ тестового окружения
 compose_build_test:
-	$(COMPOSE) --profile test up -d --build
+	$(COMPOSE) -f docker-compose.test.yml up -d --build
 
 # ---------------------------------------------------------------------------- #
 
