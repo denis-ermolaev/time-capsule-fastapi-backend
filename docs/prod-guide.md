@@ -1,16 +1,17 @@
-## 1. Настройка сервера (Ubuntu)
+## 1. Настройка сервера
 
 ```bash
-ssh root@<IP-твоего-сервера>
+ssh root@<IP-сервера>
 ```
 
 ### 1.1 Docker
 
 ```bash
+# если нету - установить
 apt update && apt upgrade -y
 curl -fsSL https://get.docker.com -o get-docker.sh
 sh get-docker.sh
-docker --version   # проверка
+docker --version   # проверка, что есть
 ```
 
 ### 1.2 Папка проекта
