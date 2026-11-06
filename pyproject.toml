@@ -70,7 +70,7 @@ ignore = [
   "S101",  # assert
   "INP001",  # не нужен  __init__.py
   "ANN201",  # тесты могут возвращать None
-  "PLR2004",  # для status_code == 201
+  "PLR2004",  # для status_code == 201 - магические числа ?
 ]
 "migrations/**" = [
   "ALL",
@@ -82,8 +82,3 @@ convention = "google"  # Google Style
 # ty ----
 [tool.ty.environment]
 python-version = "3.14"
-
-# [tool.ty.rules]
-# invalid-method-override = "ignore"
-# unresolved-import = "ignore"
-# unresolved-attribute = "ignore"
