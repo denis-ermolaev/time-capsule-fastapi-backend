@@ -7,7 +7,7 @@ ENV PYTHONUNBUFFERED=1
 # 2. Рабочая директория ----
 WORKDIR /app
 
-# 3. Прокси для сборки (передаётся через build args) ----
+# 3. Прокси для сборки (передаётся через build args или переменная окружения в ~/bashrc) ----
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
 ARG NO_PROXY
